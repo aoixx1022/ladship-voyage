@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>LADship 航海記録</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#060f1e;font-family:'Noto Sans JP',sans-serif;color:#c8d8e8;min-height:100vh}
+.app{max-width:400px;margin:0 auto;background:#060f1e;min-height:100vh;position:relative}
+
+/* ── HERO ── */
+.hero{position:relative;height:300px;overflow:hidden;background:#060f1e}
+.sky{position:absolute;inset:0;background:linear-gradient(180deg,#020810 0%,#071830 50%,#0a2448 80%,#0d3060 100%)}
+.moon{position:absolute;top:18px;right:38px;width:28px;height:28px;border-radius:50%;background:#f4ecc8;box-shadow:0 0 12px #f4ecc870}
+.star-layer{position:absolute;inset:0;pointer-events:none}
+.s{position:absolute;background:#fff;border-radius:50%;animation:twk var(--d,3s) ease-in-out infinite var(--dl,0s)}
+@keyframes twk{0%,100%{opacity:.1}50%{opacity:.8}}
+.grid-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.route-wrap{position:absolute;bottom:80px;left:16px;right:16px;height:2px}
+.route-bg{position:absolute;inset:0;background:rgba(201,168,76,.1)}
+.route-fill{position:absolute;top:0;left:0;height:100%;background:linear-gradient(90deg,#1a5580,#c9a84c80);transition:width 2s cubic-bezier(0.22,1,0.36,1)}
+.port-s{position:absolute;left:0;top:50%;transform:translateY(-50%);width:8px;height:8px;border-radius:50%;background:#4a9a6a;box-shadow:0 0 8px #4a9a6a}
+.mothership{position:absolute;bottom:52px;transform:translateX(-50%);z-index:10;left:30%!important}
+.ship-bob{animation:bob 3s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0) rotate(-.8deg)}50%{transform:translateY(-7px) rotate(.8deg)}}
+@keyframes smokeFloat{0%{opacity:.6;transform:translate(0,0) scale(.4)}60%{opacity:.3}100%{opacity:0;transform:translate(var(--tx,-50px),var(--ty,-30px)) scale(2)}}
+.ocean-base{position:absolute;bottom:0;left:0;right:0;height:88px;overflow:hidden}
+.wave-svg{position:absolute;bottom:0;left:0;width:100%}
+.kpi-wrap{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(5,16,31,.9);border:1px solid rgba(201,168,76,.3);border-radius:100px;padding:7px 20px;text-align:center;white-space:nowrap}
+.kpi-sub{font-size:10px;color:#5a7a9a;letter-spacing:.08em}
+.kpi-val{font-family:'Cinzel',serif;font-size:12px;color:#c9a84c;margin-top:1px}
+
+/* 宝箱マーカー */
+.treasure-markers{position:absolute;left:16px;right:16px;bottom:80px}
+
+/* 到達演出 */
+.overlay{position:absolute;inset:0;background:rgba(5,16,31,.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:30;opacity:0;pointer-events:none;transition:opacity .3s}
+.overlay.show{opacity:1;pointer-events:all}
+.ov-compass{animation:ovspin 6s linear infinite}
+@keyframes ovspin{to{transform:rotate(360deg)}}
+.ov-title{font-family:'Cinzel',serif;font-size:20px;color:#f4ecc8;margin:14px 0 6px;text-align:center}
+.ov-sub{font-size:12px;color:#c9a84c;text-align:center;letter-spacing:.08em;line-height:1.8}
+.ov-close{margin-top:18px;padding:8px 26px;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.35);border-radius:20px;color:#c9a84c;font-size:12px;cursor:pointer;font-family:'Noto Sans JP',sans-serif}
+.particle{position:absolute;border-radius:50%;pointer-events:none;animation:pfly var(--dur,1s) ease-out forwards}
+@keyframes pfly{0%{opacity:1;transform:translate(0,0) scale(1)}100%{opacity:0;transform:translate(var(--tx,0px),var(--ty,-80px)) scale(0)}}
+
+/* ── TABS ── */
+.tabs{display:flex;background:#08121e;border-bottom:1px solid rgba(201,168,76,.1)}
+.tab{flex:1;padding:10px 0;text-align:center;font-size:12px;color:#3a5a7a;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s}
+.tab.active{color:#c9a84c;border-bottom-color:#c9a84c;font-weight:500}
+
+/* ── CONTENT ── */
+.content{padding:12px 16px 48px}
+
+/* Status */
+.status-bar{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:12px;font-size:12px;margin-bottom:12px}
+.status-bar.ok{background:rgba(74,154,106,.1);border:1px solid rgba(74,154,106,.25);color:#4a9a6a}
+.status-bar.err{background:rgba(180,60,60,.1);border:1px solid rgba(180,60,60,.25);color:#c06060}
+.status-bar.loading{background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.2);color:#c9a84c}
+.status-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.status-dot.on{background:#4a9a6a;animation:sdot 2s ease-in-out infinite}
+.status-dot.loading{background:#c9a84c;animation:sdot .8s ease-in-out infinite}
+.status-dot.err{background:#c06060}
+@keyframes sdot{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* Fleet card */
+.fleet-card{background:linear-gradient(135deg,#0a1e38,#0d2448);border:1px solid rgba(201,168,76,.18);border-radius:20px;padding:14px 16px;margin-bottom:12px}
+.fleet-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+.fleet-val{font-family:'Cinzel',serif;font-size:28px;color:#c9a84c}
+.fleet-next-wrap{text-align:right}
+.fleet-next-n{font-family:'Cinzel',serif;font-size:15px;color:#f0e8c0}
+.fleet-next-l{font-size:10px;color:#3a5a7a;margin-top:2px}
+.fleet-bar-wrap{height:7px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden;margin-bottom:5px}
+.fleet-bar{height:100%;border-radius:4px;background:linear-gradient(90deg,#1a5580,#c9a84c);transition:width 1.5s ease}
+.fleet-bar-lbl{display:flex;justify-content:space-between;font-size:10px;color:#3a5a7a;margin-bottom:12px}
+.chest-row{display:flex;gap:8px}
+.chest-item{flex:1;background:rgba(255,255,255,.04);border-radius:12px;padding:10px 8px;text-align:center;border:1px solid transparent;transition:all .3s}
+.chest-item.done{border-color:rgba(201,168,76,.3);background:rgba(201,168,76,.08)}
+.chest-pt{font-family:'Cinzel',serif;font-size:12px}
+.chest-lbl{font-size:9px;color:#3a5a7a;margin-top:3px}
+.mfi{display:flex;align-items:center;gap:8px;padding:6px 8px;background:rgba(255,255,255,.03);border-radius:10px;border:1px solid rgba(255,255,255,.05)}
+.mfi-t{flex:1;font-size:12px;color:#c8d8e8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mfi-m{font-family:'Cinzel',serif;font-size:12px;flex-shrink:0}
+.mfi-time{font-size:10px;color:#2a4a6a;flex-shrink:0}
+
+/* Rank card */
+.rank-card{background:#07111f;border:1px solid rgba(255,255,255,.07);border-radius:20px;padding:14px 16px;margin-bottom:12px}
+.rank-hdr{display:flex;justify-content:space-between;margin-bottom:14px}
+.rank-hdr-t{font-size:10px;letter-spacing:.2em;color:#2a4a6a}
+.rrow{padding:0}
+.rrow:last-child{border-bottom:none}
+.rtop{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.rnum{font-family:'Cinzel',serif;font-size:14px;width:18px;text-align:center;flex-shrink:0}
+.gold{color:#c9a84c;text-shadow:0 0 8px #c9a84c50}.silver{color:#8ba8c0}.bronze{color:#c8823a}.dim{color:#2a4a6a}
+.rname{font-size:13px;color:#c8d8e8;font-weight:500;flex:1}
+.rpt{font-family:'Cinzel',serif;font-size:14px;flex-shrink:0}
+.rope-wrap{display:flex;align-items:center;gap:6px;margin-bottom:7px}
+.rope-area{flex:1;position:relative;height:26px}
+.rope-track{position:absolute;top:50%;left:0;right:0;height:1px;background:rgba(255,255,255,.05);transform:translateY(-50%)}
+.rope-fill{position:absolute;top:50%;left:0;height:2px;transform:translateY(-50%);border-radius:1px;background:repeating-linear-gradient(90deg,#8b6a3a 0,#8b6a3a 5px,#5a4020 5px,#5a4020 9px)}
+.rope-chest{position:absolute;top:50%;transform:translate(-50%,-50%)}
+.rope-goal{position:absolute;top:50%;right:0;transform:translateY(-50%);width:1.5px;height:12px;background:rgba(201,168,76,.2);border-radius:1px}
+.mini-row{display:flex;gap:5px;align-items:center;margin-left:34px}
+.mc{opacity:.28}.mc.got{opacity:1}
+.gear-spin{animation:gspin 3s linear infinite}
+@keyframes gspin{to{transform:rotate(360deg)}}
+
+/* Field log */
+.log-card{background:#07111f;border:1px solid rgba(255,255,255,.07);border-radius:20px;padding:14px 16px;margin-bottom:12px}
+.log-item{padding:9px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.log-item:last-child{border-bottom:none}
+.log-top{display:flex;gap:8px;align-items:baseline;margin-bottom:4px}
+.log-site{font-size:13px;color:#c8d8e8;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.log-date{font-size:10px;color:#3a5a7a;flex-shrink:0}
+.log-members{font-size:11px;color:#3a5a7a;margin-bottom:4px}
+.log-badges{display:flex;gap:5px;flex-wrap:wrap}
+.badge{font-size:10px;padding:2px 8px;border-radius:20px}
+.badge-field{background:rgba(58,122,170,.15);color:#3a7aaa}
+.badge-cap{background:rgba(201,168,76,.1);color:#c9a84c}
+.badge-encho{background:rgba(200,130,58,.15);color:#c8823a}
+
+/* Input card */
+.input-card{background:linear-gradient(145deg,#0b1e38,#0e2545);border:1px solid rgba(201,168,76,.2);border-radius:22px;padding:18px;margin-bottom:12px}
+.members-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;width:100%}
+.member-check{display:flex;align-items:center;gap:8px;padding:9px 12px;background:rgba(255,255,255,.04);border-radius:10px;border:1px solid rgba(255,255,255,.06);cursor:pointer;transition:all .15s}
+.member-check.checked{border-color:rgba(201,168,76,.4);background:rgba(201,168,76,.08)}
+.member-check input{width:14px;height:14px;accent-color:#c9a84c;flex-shrink:0;pointer-events:none}
+.member-check span{font-size:12px;color:#c8d8e8;font-family:'Noto Sans JP',sans-serif}
+.eye{font-size:10px;letter-spacing:.25em;color:#c9a84c80;margin-bottom:14px}
+.field{margin-bottom:11px}
+.field label{font-size:11px;color:#3a5a7a;display:block;margin-bottom:5px;letter-spacing:.05em}
+.field input,.field select,.field textarea{width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:12px;padding:9px 12px;font-size:13px;color:#e0cfa0;font-family:'Noto Sans JP',sans-serif;outline:none;transition:border-color .2s}
+.field select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23c9a84c' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-color:rgba(5,16,31,.8);padding-right:32px}
+.field select option{background:#0d2448;color:#e0cfa0}
+.field input:focus,.field textarea:focus{border-color:rgba(201,168,76,.4)}
+.field input::placeholder,.field textarea::placeholder{color:#2a4a6a}
+.field textarea{resize:none;height:44px;line-height:1.5}
+.encho-row{display:flex;align-items:center;gap:8px;padding:10px 0;border-top:1px solid rgba(255,255,255,.05);cursor:pointer}
+.encho-row label{font-size:12px;color:#c8823a;cursor:pointer}
+.submit-btn{width:100%;padding:12px;background:linear-gradient(135deg,#1a5080,#c9a84c);border:none;border-radius:14px;color:#fff;font-size:13px;font-weight:500;cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-top:6px;transition:opacity .2s}
+.submit-btn:hover{opacity:.88}
+.submit-btn:disabled{opacity:.4;cursor:not-allowed}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- HERO -->
+  <div class="hero" id="hero">
+    <div class="sky"></div>
+    <div class="star-layer" id="starLayer"></div>
+    <div class="moon"></div>
+    <svg class="grid-svg" viewBox="0 0 400 300" preserveAspectRatio="none">
+      <line x1="16" y1="60" x2="384" y2="60" stroke="rgba(201,168,76,.04)" stroke-width="0.5"/>
+      <line x1="16" y1="110" x2="384" y2="110" stroke="rgba(201,168,76,.04)" stroke-width="0.5"/>
+      <line x1="16" y1="160" x2="384" y2="160" stroke="rgba(201,168,76,.04)" stroke-width="0.5"/>
+      <line x1="16" y1="210" x2="384" y2="210" stroke="rgba(201,168,76,.04)" stroke-width="0.5"/>
+      <line x1="100" y1="40" x2="100" y2="222" stroke="rgba(201,168,76,.03)" stroke-width="0.5"/>
+      <line x1="200" y1="40" x2="200" y2="222" stroke="rgba(201,168,76,.03)" stroke-width="0.5"/>
+      <line x1="300" y1="40" x2="300" y2="222" stroke="rgba(201,168,76,.03)" stroke-width="0.5"/>
+      <text x="18" y="228" fill="rgba(201,168,76,.2)" font-size="8" font-family="serif">出港</text>
+    </svg>
+    <div class="route-wrap">
+      <div class="route-bg"></div>
+      <div class="route-fill" id="routeFill" style="width:0%"></div>
+      <div class="port-s"></div>
+    </div>
+    <div id="treasureMarkers" style="position:absolute;left:0;right:0;bottom:46px"></div>
+    <div class="mothership" id="mothership" style="left:8%">
+      <div class="ship-bob">
+<img src="https://i.ibb.co/WvN00DbS/ship-transparent.png" style="width:160px;height:auto;display:block" id="shipImg"/>
+      </div>
+    </div>
+    <div class="ocean-base">
+      <svg class="wave-svg" viewBox="0 0 400 88" preserveAspectRatio="none" style="height:88px">
+        <path fill="#0a2a4c" opacity=".6"><animate attributeName="d" dur="5s" repeatCount="indefinite" values="M0,28 C66,12 132,44 200,28 C268,12 334,44 400,28 L400,88 L0,88Z;M0,36 C66,22 132,50 200,36 C268,22 334,50 400,36 L400,88 L0,88Z;M0,28 C66,12 132,44 200,28 C268,12 334,44 400,28 L400,88 L0,88Z"/></path>
+        <path fill="#0c2e54" opacity=".78"><animate attributeName="d" dur="3.8s" repeatCount="indefinite" values="M0,42 C80,28 160,54 240,42 C305,32 355,50 400,42 L400,88 L0,88Z;M0,48 C80,36 160,58 240,48 C305,40 355,56 400,48 L400,88 L0,88Z;M0,42 C80,28 160,54 240,42 C305,32 355,50 400,42 L400,88 L0,88Z"/></path>
+        <path fill="#0a2040"><animate attributeName="d" dur="3s" repeatCount="indefinite" values="M0,62 C80,56 180,68 280,62 C330,58 368,64 400,62 L400,88 L0,88Z;M0,66 C80,60 180,70 280,66 C330,62 368,68 400,66 L400,88 L0,88Z;M0,62 C80,56 180,68 280,62 C330,58 368,64 400,62 L400,88 L0,88Z"/></path>
+      </svg>
+    </div>
+    <div class="kpi-wrap">
+      <div class="kpi-sub" id="kpiSub">LADship 航海記録</div>
+      <div class="kpi-val" id="kpiVal">読み込み中...</div>
+    </div>
+    <div class="overlay" id="overlay">
+      <svg class="ov-compass" width="64" height="64" viewBox="0 0 64 64" fill="none">
+        <circle cx="32" cy="32" r="30" stroke="#c9a84c" stroke-width="1.5" opacity=".4"/>
+        <circle cx="32" cy="32" r="22" stroke="#c9a84c" stroke-width="1" opacity=".3"/>
+        <line x1="32" y1="4" x2="32" y2="24" stroke="#c9a84c" stroke-width="3" stroke-linecap="round"/>
+        <line x1="32" y1="40" x2="32" y2="60" stroke="#c9a84c" stroke-width="2" stroke-linecap="round" opacity=".4"/>
+        <line x1="4" y1="32" x2="24" y2="32" stroke="#c9a84c" stroke-width="2" stroke-linecap="round" opacity=".4"/>
+        <line x1="40" y1="32" x2="60" y2="32" stroke="#c9a84c" stroke-width="2" stroke-linecap="round" opacity=".4"/>
+        <circle cx="32" cy="32" r="6" fill="#c9a84c" opacity=".8"/>
+        <circle cx="32" cy="32" r="2.5" fill="#f4ecc8"/>
+      </svg>
+      <div class="ov-title" id="ovTitle">宝箱 解錠！</div>
+      <div class="ov-sub" id="ovSub"></div>
+      <div class="ov-close" onclick="closeOverlay()">航海を続ける ⚓</div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('total',this)">総マイル</div>
+    <div class="tab" onclick="switchTab('field',this)">航海マイル</div>
+    <div class="tab" onclick="switchTab('invest',this)">タグボート</div>
+    <div class="tab" onclick="switchTab('log',this)">航海日誌</div>
+  </div>
+
+  <div class="content">
+    <div class="status-bar loading" id="statusBar">
+      <div class="status-dot loading" id="statusDot"></div>
+      <span id="statusText">Notionに接続中...</span>
+    </div>
+
+    <!-- Fleet card -->
+    <div class="fleet-card" id="fleetCard">
+      <div class="fleet-top">
+        <div>
+          <div style="font-size:10px;color:#3a5a7a;letter-spacing:.08em;margin-bottom:3px">船団 総マイル</div>
+          <div class="fleet-val" id="fleetVal">— pt</div>
+        </div>
+        <div class="fleet-next-wrap">
+          <div class="fleet-next-l">次の島まで</div>
+          <div class="fleet-next-n" id="nextRemain">— pt</div>
+          <div class="fleet-next-l" id="nextLabel">読み込み中</div>
+        </div>
+      </div>
+      <div class="fleet-bar-wrap"><div class="fleet-bar" style="width:0%" id="fleetBar"></div></div>
+      <div class="fleet-bar-lbl">
+        <span id="barFrom">—</span>
+        <span style="color:#c9a84c" id="barPct">—</span>
+        <span id="barTo">—</span>
+      </div>
+      <div id="mileFeed" style="display:flex;flex-direction:column;gap:5px"></div>
+    </div>
+
+    <!-- Ranking -->
+    <div class="rank-card" id="rankSection">
+      <div class="rank-hdr">
+        <span class="rank-hdr-t" id="rankTitle">クルー貢献 — 総マイル</span>
+        <span style="font-size:10px;color:#c9a84c">今月</span>
+      </div>
+      <div id="rankList"><div style="text-align:center;padding:20px;font-size:12px;color:#2a4a6a">読み込み中...</div></div>
+    </div>
+
+    <!-- Field log -->
+    <div class="log-card" id="logSection" style="display:none">
+      <div class="rank-hdr" style="margin-bottom:10px">
+        <span class="rank-hdr-t">航海日誌</span>
+        <span style="font-size:10px;color:#2a4a6a" id="logCount">—件</span>
+      </div>
+      <div id="logList"><div style="text-align:center;padding:20px;font-size:12px;color:#2a4a6a">読み込み中...</div></div>
+    </div>
+
+    <!-- Input -->
+    <div class="input-card">
+      <div class="eye">航海を記録する（キャプテンのみ）</div>
+      <div class="field">
+        <label>日付</label>
+        <input id="f-date" type="date">
+      </div>
+      <div class="field">
+        <label>取引先名</label>
+        <select id="f-client" onchange="updateSites()">
+          <option value="">選択してください</option>
+          <option>ホープライズ</option>
+          <option>Room.Project</option>
+          <option>藤井表具</option>
+          <option>レイダン</option>
+          <option>ケームライン</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>現場名</label>
+        <select id="f-site">
+          <option value="">取引先を先に選択</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>参加メンバー</label>
+        <div class="members-grid" id="membersGrid"></div>
+      </div>
+      <div class="field">
+        <label>キャプテン</label>
+        <select id="f-captain">
+          <option value="">メンバーを先に選択</option>
+        </select>
+      </div>
+      <button class="submit-btn" id="submitBtn" onclick="submitField()">航海マイルを刻む ⚓</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   設定
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+const WORKER = 'https://bold-night-7fa6.ladship-inc-2020.workers.dev';
+const DB_LOG    = '3234282633e3815c9bace61bbc257662';
+const DB_CONFIG = '3234282633e381309af9d2dd79bc1ff5';
+
+const CREW = [
+  {name:'キャメロン', color:'#3aaa5a'},
+  {name:'たかやす',   color:'#2a4aaa'},
+  {name:'U_to',       color:'#7a3aaa'},
+  {name:'ゆうへい',   color:'#dd7722'},
+  {name:'xxZU_Maxx',  color:'#cc3344'},
+  {name:'直樹',       color:'#3aaabb'},
+  {name:'ニック',     color:'#885533'},
+  {name:'ぬまっち',   color:'#7a7a7a'},
+];
+
+const PT = {field:10, captain:5, prep:3, report:2, encho:15};
+
+/* ━━━━ State ━━━━ */
+let fieldLogs = [];
+let configData = {teamChests:[100,200,300], personalChests:[30,60,90]};
+let curTab = 'total';
+
+/* ━━━━ API ━━━━ */
+async function notionFetch(path, method='GET', body=null) {
+  const opts = {method, headers:{'Content-Type':'application/json'}};
+  if(body) opts.body = JSON.stringify(body);
+  const res = await fetch(WORKER + path, opts);
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  return res.json();
+}
+
+async function fetchConfig() {
+  const d = await notionFetch('/databases/'+DB_CONFIG+'/query','POST',{page_size:1,sorts:[{property:'設定名',direction:'descending'}]});
+  if(d.results && d.results.length) {
+    const p = d.results[0].properties;
+    configData.teamChests = [
+      p['船団宝箱1']?.number || 100,
+      p['船団宝箱2']?.number || 200,
+      p['船団宝箱3']?.number || 300,
+    ].filter(Boolean);
+    configData.personalChests = [
+      p['個人宝箱1']?.number || 30,
+      p['個人宝箱2']?.number || 60,
+      p['個人宝箱3']?.number || 90,
+    ].filter(Boolean);
+  }
+}
+
+async function fetchLogs() {
+  const d = await notionFetch('/databases/'+DB_LOG+'/query','POST',{
+    sorts:[{property:'日付',direction:'descending'}],
+    page_size:50
+  });
+  return (d.results||[]).map(p => {
+    const pr = p.properties;
+    return {
+      id: p.id,
+      site:    pr['現場名']?.title?.[0]?.plain_text || '',
+      date:    pr['日付']?.date?.start || '',
+      members: (pr['参加メンバー']?.rich_text?.[0]?.plain_text||'').split(',').map(s=>s.trim()).filter(Boolean),
+      captain: pr['キャプテン']?.rich_text?.[0]?.plain_text || '',
+      prep:    pr['準備担当']?.rich_text?.[0]?.plain_text || '',
+      encho:   pr['他社応援']?.checkbox || false,
+      enchoMembers: (pr['他社応援メンバー']?.rich_text?.[0]?.plain_text||'').split(',').map(s=>s.trim()).filter(Boolean),
+    };
+  });
+}
+
+async function writeLog(entry) {
+  await notionFetch('/pages','POST',{
+    parent:{database_id:DB_LOG},
+    properties:{
+      '現場名':         {title:[{text:{content:entry.site}}]},
+      '日付':           {date:{start:entry.date||new Date().toISOString().slice(0,10)}},
+      '参加メンバー':   {rich_text:[{text:{content:entry.members.join(',')}}]},
+      'キャプテン':     {rich_text:[{text:{content:entry.captain}}]},
+      '準備担当':       {rich_text:[{text:{content:entry.prep}}]},
+      '他社応援':       {checkbox:entry.encho},
+      '他社応援メンバー':{rich_text:[{text:{content:entry.enchoMembers.join(',')}}]},
+    }
+  });
+}
+
+/* ━━━━ ポイント計算 ━━━━ */
+function calcPts(logs) {
+  const t={}, f={}, inv={};
+  CREW.forEach(c=>{t[c.name]=0; f[c.name]=0; inv[c.name]=0;});
+  logs.forEach(log=>{
+    log.members.forEach(m=>{if(t[m]!==undefined){t[m]+=PT.field;f[m]+=PT.field;}});
+    if(t[log.captain]!==undefined){t[log.captain]+=PT.captain+PT.report;f[log.captain]+=PT.captain+PT.report;}
+    if(t[log.prep]!==undefined){t[log.prep]+=PT.prep;f[log.prep]+=PT.prep;}
+    if(log.encho) log.enchoMembers.forEach(m=>{if(t[m]!==undefined){t[m]+=PT.encho;inv[m]+=PT.encho;}});
+  });
+  return{total:t,field:f,invest:inv};
+}
+
+/* ━━━━ SVG helpers ━━━━ */
+function compass(color, size=28) {
+  const r=size/2;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" fill="none">
+    <circle cx="${r}" cy="${r}" r="${r}" fill="${color}20"/>
+    <circle cx="${r}" cy="${r}" r="${r-1}" stroke="${color}" stroke-width="1.2" opacity=".5"/>
+    <circle cx="${r}" cy="${r}" r="${r*.52}" stroke="${color}" stroke-width=".7" opacity=".2"/>
+    <line x1="${r}" y1="${r*.18}" x2="${r}" y2="${r*.6}" stroke="${color}" stroke-width="1.8" stroke-linecap="round"/>
+    <line x1="${r}" y1="${r*1.4}" x2="${r}" y2="${r*1.82}" stroke="${color}" stroke-width="1" stroke-linecap="round" opacity=".35"/>
+    <line x1="${r*.18}" y1="${r}" x2="${r*.6}" y2="${r}" stroke="${color}" stroke-width="1" stroke-linecap="round" opacity=".35"/>
+    <line x1="${r*1.4}" y1="${r}" x2="${r*1.82}" y2="${r}" stroke="${color}" stroke-width="1" stroke-linecap="round" opacity=".35"/>
+    <circle cx="${r}" cy="${r}" r="${r*.18}" fill="${color}" opacity=".85"/>
+    <circle cx="${r}" cy="${r}" r="${r*.08}" fill="#f4ecc8"/>
+  </svg>`;
+}
+
+function gear(color, size=22) {
+  const r=size/2, teeth=8, iR=r*.52, oR=r*.82, hR=r*.22;
+  let path='';
+  for(let i=0;i<teeth;i++){
+    const a0=(i/teeth)*Math.PI*2-Math.PI/2;
+    const a1=a0+(0.35/teeth)*Math.PI*2, a2=a0+(0.65/teeth)*Math.PI*2, a3=a0+(1/teeth)*Math.PI*2;
+    const ix0=r+iR*Math.cos(a0),iy0=r+iR*Math.sin(a0);
+    const ox1=r+oR*Math.cos(a1),oy1=r+oR*Math.sin(a1);
+    const ox2=r+oR*Math.cos(a2),oy2=r+oR*Math.sin(a2);
+    const ix3=r+iR*Math.cos(a3),iy3=r+iR*Math.sin(a3);
+    if(i===0) path+=`M${ix0.toFixed(1)},${iy0.toFixed(1)} `;
+    else path+=`L${ix0.toFixed(1)},${iy0.toFixed(1)} `;
+    path+=`L${ox1.toFixed(1)},${oy1.toFixed(1)} L${ox2.toFixed(1)},${oy2.toFixed(1)} L${ix3.toFixed(1)},${iy3.toFixed(1)} `;
+  }
+  path+='Z';
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" fill="none">
+    <circle cx="${r}" cy="${r}" r="${r}" fill="${color}18"/>
+    <g class="gear-spin" style="transform-origin:${r}px ${r}px">
+      <path d="${path}" fill="${color}" opacity=".85"/>
+      <circle cx="${r}" cy="${r}" r="${hR}" fill="#060f1e" stroke="${color}" stroke-width=".8" opacity=".6"/>
+    </g>
+    <circle cx="${r}" cy="${r}" r="${hR*.45}" fill="${color}" opacity=".7"/>
+  </svg>`;
+}
+
+function chestWithRope(color, size=20) {
+  const h=size, w=size+7;
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" fill="none">
+    <line x1="0" y1="${h/2}" x2="8" y2="${h/2}" stroke="#8b6a3a" stroke-width="2" stroke-linecap="round"/>
+    <rect x="8" y="${h*.42}" width="${h}" height="${h*.52}" rx="2" fill="#141008" stroke="${color}" stroke-width="1.3"/>
+    <rect x="9" y="${h*.16}" width="${h-2}" height="${h*.32}" rx="2" fill="#1a1408" stroke="${color}" stroke-width="1.3"/>
+    <circle cx="${8+h/2}" cy="${h*.66}" r="${h*.1}" fill="${color}" opacity=".55"/>
+  </svg>`;
+}
+
+function chestSVG(opened, size=13, color='#c9a84c') {
+  if(opened) return `<svg width="${size}" height="${size}" viewBox="0 0 22 20" fill="none"><rect x="1" y="9" width="20" height="10" rx="2" fill="#3a2a08" stroke="${color}" stroke-width="1.4"/><rect x="2" y="3" width="18" height="8" rx="2" fill="#4a3a10" stroke="${color}" stroke-width="1.4"/><circle cx="11" cy="12" r="2" fill="${color}"/></svg>`;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 22 20" fill="none"><rect x="1" y="9" width="20" height="10" rx="2" fill="#141008" stroke="rgba(201,168,76,.3)" stroke-width="1.4"/><rect x="2" y="3" width="18" height="8" rx="2" fill="#1a1408" stroke="rgba(201,168,76,.3)" stroke-width="1.4"/><circle cx="11" cy="12" r="2" fill="none" stroke="rgba(201,168,76,.35)" stroke-width="1"/></svg>`;
+}
+
+function heroChestSVG(opened, size=22) {
+  const c = opened ? '#c9a84c' : 'rgba(201,168,76,.3)';
+  const fill = opened ? '#3a2a08' : '#141008';
+  const fill2 = opened ? '#4a3a10' : '#1a1408';
+  return `<svg width="${size}" height="${size}" viewBox="0 0 22 20" fill="none" style="${opened?'filter:drop-shadow(0 0 5px rgba(201,168,76,.5))':''}">
+    <rect x="1" y="9" width="20" height="10" rx="2" fill="${fill}" stroke="${c}" stroke-width="1.4"/>
+    <rect x="2" y="3" width="18" height="8" rx="2" fill="${fill2}" stroke="${c}" stroke-width="1.4"/>
+    <circle cx="11" cy="12" r="2" fill="${opened?'#c9a84c':'none'}" stroke="${opened?'none':'rgba(201,168,76,.4)'}" stroke-width="1"/>
+  </svg>`;
+}
+
+
+/* ━━━━ ポイント計算 ━━━━ */
+
+
+/* ━━━━ SVG helpers ━━━━ */
+
+
+
+
+
+
+
+
+
+
+/* ━━━━ Hero render ━━━━ */
+
+
+function renderHero(teamPt) {
+  const chests = configData.teamChests;
+  const maxPt = chests[chests.length-1] + 50;
+  const pct = Math.min(teamPt/maxPt, 0.94);
+  const hw = document.getElementById('hero').offsetWidth || 400;
+
+  document.getElementById('routeFill').style.width = (pct*100)+'%';
+
+  const tm = document.getElementById('treasureMarkers');
+  const nextChest = chests.find(c=>c>teamPt);
+  const prevChest = [...chests].reverse().find(c=>c<=teamPt)||0;
+
+  let marker = document.getElementById('islandMarker');
+  if(!marker) {
+    marker = document.createElement('div');
+    marker.id = 'islandMarker';
+    marker.style.cssText = 'position:absolute;bottom:46px;text-align:center;z-index:5;transition:right 2.5s cubic-bezier(0.22,1,0.36,1)';
+    marker.innerHTML = '<img src="https://i.ibb.co/FkK0cGw3/island-transparent.png" style="width:110px;height:auto;display:block;filter:drop-shadow(0 0 15px rgba(201,168,76,.45))" id="islandImg"/><div id="islandLabel" style="font-size:9px;color:rgba(201,168,76,.6);font-family:Cinzel,serif;margin-top:-8px"></div>';
+    tm.appendChild(marker);
+  }
+
+  if(nextChest) {
+    const progress = (teamPt - prevChest) / (nextChest - prevChest);
+    // progress=0: 島は画面右外(-110px)、progress=1: 画面右端付近(hw*0.55)
+    const rightPx = -110 + progress * (hw * 0.62 + 110);
+    marker.style.right = rightPx + 'px';
+    document.getElementById('islandLabel').textContent = nextChest + 'マイル';
+    document.getElementById('islandImg').style.filter = 'drop-shadow(0 0 15px rgba(201,168,76,.45))';
+  } else {
+    marker.style.right = (hw * 0.08) + 'px';
+    document.getElementById('islandLabel').textContent = '全島 制覇！';
+    document.getElementById('islandImg').style.filter = 'drop-shadow(0 0 25px rgba(201,168,76,.9))';
+  }
+
+  const next = chests.find(c=>c>teamPt);
+  const prev = [...chests].reverse().find(c=>c<=teamPt);
+  if(next) {
+    document.getElementById('kpiVal').textContent = '船団 ' + teamPt + 'マイル — 次の島まで ' + (next-teamPt) + 'マイル';
+    document.getElementById('nextRemain').textContent = (next-teamPt)+' マイル';
+    document.getElementById('nextLabel').textContent = next+'マイル 島';
+    const from = prev||0;
+    const p = Math.round((teamPt-from)/(next-from)*100);
+    document.getElementById('fleetBar').style.width = p+'%';
+    document.getElementById('barPct').textContent = p+'%';
+    document.getElementById('barFrom').textContent = '前の島 '+from+'マイル';
+    document.getElementById('barTo').textContent = '次 '+next+'マイル';
+  } else {
+    document.getElementById('kpiVal').textContent = '船団 ' + teamPt + 'マイル — 全島 制覇！';
+    document.getElementById('nextRemain').textContent = '完！';
+    document.getElementById('fleetBar').style.width = '100%';
+  }
+  document.getElementById('fleetVal').textContent = teamPt + ' マイル';
+  renderMileFeed();
+}
+/* ━━━━ ポイント計算 ━━━━ */
+
+
+/* ━━━━ SVG helpers ━━━━ */
+
+
+
+
+
+
+
+
+
+
+/* ━━━━ Hero render ━━━━ */
+/* ━━━━ Ranking render ━━━━ */
+function renderRanking() {
+  const pts = calcPts(fieldLogs);
+  const src = pts[curTab] || pts.total;
+  const sorted = CREW.map(c=>({...c,pt:src[c.name]||0})).sort((a,b)=>b.pt-a.pt);
+  const max = sorted[0].pt || 1;
+  const labels = {total:'クルー貢献 — 総マイル',field:'クルー貢献 — 航海マイル',invest:'クルー貢献 — タグボート'};
+  document.getElementById('rankTitle').textContent = labels[curTab]||labels.total;
+  const nc = ['gold','silver','bronze','dim','dim','dim','dim','dim'];
+  const pc = configData.personalChests;
+  const maxPc = pc[pc.length-1];
+
+  document.getElementById('rankList').innerHTML = sorted.map((m,i)=>{
+    const fp = pts.field[m.name]||0;
+    const ip = pts.invest[m.name]||0;
+    const progress = Math.min(m.pt/maxPc,1);
+    const ropeW = Math.round(progress*100);
+    const next = pc.find(p=>m.pt<p);
+    const barW = Math.round((m.pt/max)*100);
+    return '<div class="rrow" style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)">' +
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">' +
+        '<span class="rnum ' + nc[i] + '">' + (i+1) + '</span>' +
+        compass(m.color, 26) +
+        '<span style="font-size:13px;color:#c8d8e8;font-weight:500;flex:1">' + m.name + '</span>' +
+        '<span style="font-size:10px;color:#3a5a7a;margin-right:4px">' + (next ? 'あと'+(next-m.pt) : '全獲得！') + '</span>' +
+        '<span style="font-family:Cinzel,serif;font-size:14px;color:' + m.color + '">' + m.pt + '</span>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:6px">' +
+        gear(m.color, 18) +
+        '<div style="flex:1;position:relative;height:18px">' +
+          '<div style="position:absolute;top:50%;left:0;right:0;height:1px;background:rgba(255,255,255,.05);transform:translateY(-50%)"></div>' +
+          '<div style="position:absolute;top:50%;left:0;height:2px;width:' + ropeW + '%;transform:translateY(-50%);background:repeating-linear-gradient(90deg,#8b6a3a 0,#8b6a3a 4px,#5a4020 4px,#5a4020 8px);border-radius:1px"></div>' +
+          '<div style="position:absolute;top:50%;left:' + ropeW + '%;transform:translate(-50%,-50%)">' + chestWithRope(m.color,16) + '</div>' +
+          '<div style="position:absolute;top:50%;right:0;transform:translateY(-50%);width:1.5px;height:10px;background:rgba(201,168,76,.2);border-radius:1px"></div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+/* ━━━━ Log render ━━━━ */
+function renderMileFeed() {
+  const feed = fieldLogs.slice(0, 3);
+  const el = document.getElementById('mileFeed');
+  if (!el) return;
+  if (!feed.length) {
+    el.innerHTML = '<div style="font-size:11px;color:#2a4a6a;text-align:center;padding:8px">まだ記録がありません</div>';
+    return;
+  }
+  el.innerHTML = feed.map(log => {
+    const crew = CREW.find(c => c.name === log.captain) || {color:'#c9a84c'};
+    const miles = log.members.length * 10 + 7;
+    const d = log.date ? log.date.slice(5) : '—';
+    return `<div class="mfi">
+      ${compass(crew.color, 20)}
+      <div class="mfi-t">${log.captain} · ${log.site}</div>
+      <div class="mfi-m" style="color:${crew.color}">+${miles}</div>
+      <div class="mfi-time">${d}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderLog() {
+  document.getElementById('logCount').textContent = fieldLogs.length+'件';
+  if(!fieldLogs.length){
+    document.getElementById('logList').innerHTML='<div style="text-align:center;padding:20px;font-size:12px;color:#2a4a6a">航海日誌がありません</div>';
+    return;
+  }
+  document.getElementById('logList').innerHTML = fieldLogs.map(log=>{
+    const mStr = log.members.join('・');
+    const totalPt = log.members.length*PT.field + PT.captain+PT.report + PT.prep + (log.encho?log.enchoMembers.length*PT.encho:0);
+    return `<div class="log-item">
+      <div class="log-top"><span class="log-site">${log.site}</span><span class="log-date">${log.date}</span></div>
+      <div class="log-members">参加：${mStr}</div>
+      <div class="log-badges">
+        <span class="badge badge-field">航海マイル ${log.members.length*PT.field}pt</span>
+        <span class="badge badge-cap">Captain：${log.captain}</span>
+        ${log.encho?`<span class="badge badge-encho">タグボート ${log.enchoMembers.length*PT.encho}pt</span>`:''}
+        <span class="badge" style="background:rgba(201,168,76,.08);color:#c9a84c">計 ${totalPt}pt</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ━━━━ Tab switch ━━━━ */
+function switchTab(tab, el) {
+  curTab = tab;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('rankSection').style.display = tab==='log'?'none':'block';
+  document.getElementById('logSection').style.display  = tab==='log'?'block':'none';
+  if(tab!=='log') renderRanking();
+}
+
+/* ━━━━ Submit ━━━━ */
+async function submitField() {
+  const site    = document.getElementById('f-site').value.trim();
+  const date    = document.getElementById('f-date').value;
+  const members = CREW.filter(m => document.getElementById('cb-'+m.name)?.checked).map(m=>m.name);
+  const captain = document.getElementById('f-captain').value.trim();
+
+  if(!site||!members.length||!captain){
+    alert('現場名・参加メンバー・キャプテンは必須です');
+    return;
+  }
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = '航海中...';
+
+  const entry = {site,date,members,captain,prep:'',encho:false,enchoMembers:[]};
+
+  try {
+    await writeLog(entry);
+    fieldLogs.unshift(entry);
+
+    /* ① 最上部へスムーズスクロール */
+    window.scrollTo({top:0, behavior:'smooth'});
+
+    /* ② 少し待ってから演出開始 */
+    await new Promise(r => setTimeout(r, 500));
+
+    /* ③ 煙エフェクト（煙突から左へ） */
+    spawnSmoke();
+
+    /* ④ 煙が出始めたら島が近づいてくる */
+    await new Promise(r => setTimeout(r, 400));
+    const pts = calcPts(fieldLogs);
+    const teamPt = Object.values(pts.total).reduce((s,v)=>s+v,0);
+    renderHero(teamPt);
+    renderMileFeed();
+    renderRanking();
+    renderLog();
+
+    /* ⑤ 宝箱到達チェック */
+    const prevPts = calcPts(fieldLogs.slice(1));
+    const prevPt = Object.values(prevPts.total).reduce((s,v)=>s+v,0);
+    const reached = configData.teamChests.find(c=>prevPt<c&&teamPt>=c);
+    if(reached) setTimeout(()=>showOverlay(reached, teamPt), 1800);
+
+    /* フォームリセット */
+    document.getElementById('f-site').value='';
+    document.getElementById('f-date').value='';
+    document.getElementById('f-client').value='';
+    document.getElementById('f-site').innerHTML='<option value="">取引先を先に選択</option>';
+    document.getElementById('f-captain').innerHTML='<option value="">メンバーを先に選択</option>';
+    CREW.forEach(m=>{
+      const cb=document.getElementById('cb-'+m.name);
+      if(cb) cb.checked=false;
+      const el=document.getElementById('mc-'+m.name);
+      if(el){el.style.borderColor='rgba(255,255,255,.06)';el.style.background='rgba(255,255,255,.04)';}
+    });
+  } catch(e) {
+    alert('記録に失敗しました: '+e.message);
+  }
+  btn.disabled=false;
+  btn.textContent='航海マイルを刻む ⚓';
+}
+
+/* ━━━━ 煙エフェクト ━━━━ */
+function spawnSmoke() {
+  const hero = document.getElementById('hero');
+  const shipEl = document.getElementById('mothership');
+  if(!hero||!shipEl) return;
+  const shipRect = shipEl.getBoundingClientRect();
+  const heroRect = hero.getBoundingClientRect();
+  /* 煙突の位置（船の上部中央あたり） */
+  const cx = shipRect.left - heroRect.left + shipRect.width * 0.45;
+  const cy = shipRect.top - heroRect.top + 10;
+  for(let i=0;i<12;i++){
+    setTimeout(()=>{
+      const s = document.createElement('div');
+      const sz = 8 + Math.random()*14;
+      const tx = -(25 + Math.random()*55);
+      const ty = -(15 + Math.random()*30);
+      const dur = (1.2 + Math.random()*1.0)+'s';
+      s.style.cssText = [
+        'position:absolute',
+        'border-radius:50%',
+        'pointer-events:none',
+        'z-index:20',
+        'width:'+sz+'px',
+        'height:'+sz+'px',
+        'left:'+cx+'px',
+        'top:'+cy+'px',
+        '--tx:'+tx+'px',
+        '--ty:'+ty+'px',
+        'background:rgba(190,200,220,0.6)',
+        'animation:smokeFloat '+dur+' ease-out forwards'
+      ].join(';');
+      hero.appendChild(s);
+      setTimeout(()=>s.remove(), 2200);
+    }, i*90);
+  }
+}
+
+/* ━━━━ Overlay ━━━━ */
+function showOverlay(pt, teamPt) {
+  document.getElementById('ovTitle').textContent = pt+'マイル 島 解錠！';
+  document.getElementById('ovSub').textContent = `船団 ${teamPt}pt 到達\nLADship 全クルーの力で`;
+  document.getElementById('overlay').classList.add('show');
+  const hero = document.getElementById('hero');
+  const colors = ['#c9a84c','#f4ecc8','#fff','#c8823a','#4a9a6a'];
+  for(let i=0;i<20;i++){
+    const p=document.createElement('div');p.className='particle';
+    const sz=Math.random()*5+3;
+    const tx=(Math.random()-.5)*180, ty=-(Math.random()*130+40);
+    p.style.cssText=`width:${sz}px;height:${sz}px;background:${colors[i%5]};left:${25+Math.random()*50}%;top:40%;--tx:${tx}px;--ty:${ty}px;--dur:${.6+Math.random()*.7}s`;
+    hero.appendChild(p);
+    setTimeout(()=>p.remove(),900);
+  }
+}
+function closeOverlay(){ document.getElementById('overlay').classList.remove('show'); }
+
+/* ━━━━ Stars ━━━━ */
+(function(){
+  const sl=document.getElementById('starLayer');
+  for(let i=0;i<55;i++){
+    const s=document.createElement('div');s.className='s';
+    const sz=Math.random()*1.5+.3;
+    s.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*65}%;--d:${2+Math.random()*3.5}s;--dl:-${Math.random()*4}s`;
+    sl.appendChild(s);
+  }
+})();
+
+/* ━━━━ Init ━━━━ */
+
+
+function setStatus(state, msg){
+  const b=document.getElementById('statusBar');
+  const d=document.getElementById('statusDot');
+  b.className='status-bar '+state;
+  d.className='status-dot '+(state==='ok'?'on':state==='err'?'err':'loading');
+  document.getElementById('statusText').textContent=msg;
+}
+
+const SITES = {
+  'ホープライズ': ['西野CF工事','手稲基礎工事','北区外壁工事'],
+  'Room.Project': ['篠路民泊改装','東区内装工事'],
+  '藤井表具':     ['表具張替え工事','内装仕上げ'],
+  'レイダン':     ['設備工事A','設備工事B'],
+  'ケームライン': ['ライン工事'],
+};
+
+function updateSites() {
+  const c = document.getElementById('f-client').value;
+  const s = document.getElementById('f-site');
+  s.innerHTML = c
+    ? (SITES[c]||[]).map(v=>`<option>${v}</option>`).join('')
+    : '<option value="">取引先を先に選択</option>';
+}
+
+function toggleMember(name, el) {
+  const cb = document.getElementById('cb-'+name);
+  cb.checked = !cb.checked;
+  if (cb.checked) {
+    el.style.borderColor = 'rgba(201,168,76,.4)';
+    el.style.background = 'rgba(201,168,76,.08)';
+  } else {
+    el.style.borderColor = 'rgba(255,255,255,.06)';
+    el.style.background = 'rgba(255,255,255,.04)';
+  }
+  const checked = CREW.filter(m => document.getElementById('cb-'+m.name)?.checked);
+  document.getElementById('f-captain').innerHTML = checked.length
+    ? checked.map(m => '<option>' + m.name + '</option>').join('')
+    : '<option value="">メンバーを先に選択</option>';
+}
+
+function initMembersGrid() {
+  const grid = document.getElementById('membersGrid');
+  if (!grid) return;
+  grid.innerHTML = CREW.map(m =>
+    '<div id="mc-' + m.name + '" onclick="toggleMember(\'' + m.name + '\',this)" style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:rgba(255,255,255,.04);border-radius:10px;border:1px solid rgba(255,255,255,.06);cursor:pointer;transition:all .15s">' +
+    '<input type="checkbox" id="cb-' + m.name + '" style="width:14px;height:14px;accent-color:#c9a84c;flex-shrink:0;pointer-events:none">' +
+    '<span style="font-size:13px;color:#c8d8e8;font-family:Noto Sans JP,sans-serif">' + m.name + '</span>' +
+    '</div>'
+  ).join('');
+}
+
+async function init() {
+  initMembersGrid();
+  setStatus('loading','Notionに接続中...');
+  try {
+    await fetchConfig();
+    fieldLogs = await fetchLogs();
+    const pts = calcPts(fieldLogs);
+    const teamPt = Object.values(pts.total).reduce((s,v)=>s+v,0);
+    renderHero(teamPt);
+    renderRanking();
+    renderLog();
+    setStatus('ok', `接続中 — ${fieldLogs.length}件の航海日誌`);
+    renderMileFeed();
+    setTimeout(pollLogs, 30000);
+  } catch(e) {
+    setStatus('err','接続エラー: '+e.message.slice(0,40));
+    renderHero(0);
+    renderRanking();
+  }
+}
+
+async function pollLogs(){
+  try {
+    const latest = await fetchLogs();
+    if(latest.length !== fieldLogs.length){
+      fieldLogs = latest;
+      const pts = calcPts(fieldLogs);
+      const teamPt = Object.values(pts.total).reduce((s,v)=>s+v,0);
+      renderHero(teamPt);
+      renderRanking();
+      renderLog();
+      renderMileFeed();
+    }
+  } catch(_){}
+  setTimeout(pollLogs, 30000);
+}
+
+init();
+</script>
+</body>
+</html>
